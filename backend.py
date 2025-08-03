@@ -66,3 +66,24 @@ async def upload_csv(filename: str, file: UploadFile = File(...)):
     with open(file_location, "wb") as f:
         shutil.copyfileobj(file.file, f)
     return {"message": f"{filename} uploaded successfully"}
+import subprocess
+
+@app.post("/optimize-and-explain")
+async def optimize_and_explain():
+    # Run the optimizer
+    subprocess.run(["python", "optimize.py"], check=True)
+
+    # Run GPT explainer
+    result = subprocess.run(
+        ["python", "explain_schedule.py"], capture_output=True, text=True
+    )
+    explanation = result.stdout.split("🧠 GPT Explanation:")[-1].strip()
+
+    # Load schedule
+    with open("results/schedule_output.json", "r") as f:
+        schedule = json.load(f)
+
+    return {
+        "schedule": schedule,
+        "gpt_explanation": explanation
+    }
