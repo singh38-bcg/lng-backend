@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: lng-backend
+    env: python
+    buildCommand: ""
+    startCommand: uvicorn backend:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false

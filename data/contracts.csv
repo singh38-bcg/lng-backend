@@ -1,0 +1,4 @@
+cargo_id,delivery_price_per_ton,penalty_per_day
+CARGO-2024-001,480,15000
+CARGO-2024-002,500,17000
+CARGO-2024-003,470,14000

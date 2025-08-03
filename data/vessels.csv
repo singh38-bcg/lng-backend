@@ -1,0 +1,6 @@
+vessel_id,current_location,speed,cost_per_day,status,draft
+LNG-001,Qatar Terminal,18,50000,En Route,11
+LNG-002,Singapore Strait,19,53000,Delayed,10
+LNG-003,Port of Rotterdam,17,49000,Scheduled,12
+LNG-004,Gulf of Mexico,20,52000,En Route,11
+LNG-005,Available,18,47000,Unassigned,10
