@@ -3,6 +3,8 @@ import json
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from openai import OpenAI
+from fastapi import UploadFile, File
+import shutil
 
 # Load .env and API key
 load_dotenv()
@@ -58,3 +60,9 @@ async def chat_with_schedule(request: Request):
     )
 
     return {"answer": response.choices[0].message.content}
+@app.post("/upload/{filename}")
+async def upload_csv(filename: str, file: UploadFile = File(...)):
+    file_location = f"data/{filename}"
+    with open(file_location, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"message": f"{filename} uploaded successfully"}
