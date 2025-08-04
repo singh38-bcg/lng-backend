@@ -71,7 +71,14 @@ import subprocess
 @app.post("/optimize-and-explain")
 async def optimize_and_explain():
     # Run the optimizer
-    subprocess.run(["python", "optimize.py"], check=True)
+    result = subprocess.run(["python", "optimize.py"], capture_output=True, text=True)
+
+    if result.returncode != 0:
+        return {
+            "error": "optimize.py failed",
+            "stdout": result.stdout,
+            "stderr": result.stderr
+        }
 
     # Run GPT explainer
     result = subprocess.run(
