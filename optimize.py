@@ -39,7 +39,7 @@ def load_csv(path, required_keys):
         return [r for r in rows if all(k in r and r[k].strip() != '' for k in required_keys)]
 
 def run_optimization():
-    vessels = load_csv("data/vessels.csv", ["vessel_id", "speed", "cost_per_day"])
+    vessels = load_csv("data/vessels.csv", ["vessel_id", "speed", "cost_per_day", "current_location","status", "delay_hours", "last_update"])
     cargos = load_csv("data/cargos.csv", ["cargo_id", "origin", "destination", "volume", "window_end"])
     contracts = load_csv("data/contracts.csv", ["cargo_id", "delivery_price_per_ton", "penalty_per_day"])
 
