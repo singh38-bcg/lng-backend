@@ -1,4 +1,4 @@
-import pandas as pd
+import csv
 import pulp
 import json
 from datetime import datetime
@@ -15,8 +15,6 @@ PORT_TO_MARKET = {
 
 def get_spot_price(destination_port):
     market = PORT_TO_MARKET.get(destination_port, "JKM")  # fallback
-    # Simulated URL; use mock API until KAPSARC/EIA is directly available
-    # In future: Replace with actual call to KAPSARC API
     fake_prices = {
         "JKM": 13.25,
         "SING": 12.80,
@@ -25,79 +23,73 @@ def get_spot_price(destination_port):
     }
     return fake_prices.get(market, 12.00)
 
-# Load data
-vessels_df = pd.read_csv("data/vessels.csv")
-cargos_df = pd.read_csv("data/cargos.csv")
-contracts_df = pd.read_csv("data/contracts.csv")
+# Load CSV data
+def load_csv(path):
+    with open(path, "r") as f:
+        return list(csv.DictReader(f))
+
+vessels = load_csv("data/vessels.csv")
+cargos = load_csv("data/cargos.csv")
 
 # Constants
 AVG_DISTANCE = 3000  # nautical miles, placeholder
-HOURS_PER_DAY = 24
 
 # Create a Linear Programming problem
 model = pulp.LpProblem("LNG_Lifting_Optimization", pulp.LpMaximize)
 
-# Decision variables: x[vessel][cargo] = 1 if vessel is assigned to cargo
+# Decision variables
 assignments = pulp.LpVariable.dicts(
     "assign",
-    ((v, c) for v in vessels_df["vessel_id"] for c in cargos_df["cargo_id"]),
+    ((v["vessel_id"], c["cargo_id"]) for v in vessels for c in cargos),
     cat="Binary"
 )
 
-# Objective: Maximize Profit
+# Objective: Maximize profit
 model += pulp.lpSum([
-    assignments[v, c] * (
-        get_spot_price(cargos_df[cargos_df["cargo_id"] == c]["destination"].values[0]) *
-        cargos_df[cargos_df["cargo_id"] == c]["volume"].values[0]
-        -
-        vessels_df[vessels_df["vessel_id"] == v]["cost_per_day"].values[0] *
-        (AVG_DISTANCE / vessels_df[vessels_df["vessel_id"] == v]["speed"].values[0])
+    assignments[v["vessel_id"], c["cargo_id"]] * (
+        get_spot_price(c["destination"]) * float(c["volume"]) -
+        float(v["cost_per_day"]) * (AVG_DISTANCE / float(v["speed"]))
     )
-    for v in vessels_df["vessel_id"]
-    for c in cargos_df["cargo_id"]
+    for v in vessels for c in cargos
 ])
 
-# Constraint: Each cargo must be assigned to exactly one vessel
-for c in cargos_df["cargo_id"]:
-    model += pulp.lpSum(assignments[v, c] for v in vessels_df["vessel_id"]) == 1
+# Constraints
+for c in cargos:
+    model += pulp.lpSum(assignments[v["vessel_id"], c["cargo_id"]] for v in vessels) == 1
 
-# Constraint: Each vessel can only be assigned to at most one cargo
-for v in vessels_df["vessel_id"]:
-    model += pulp.lpSum(assignments[v, c] for c in cargos_df["cargo_id"]) <= 1
+for v in vessels:
+    model += pulp.lpSum(assignments[v["vessel_id"], c["cargo_id"]] for c in cargos) <= 1
 
-# Solve the model
+# Solve
 model.solve()
 
-# Extract and format output
+# Extract results
 output = []
-for v in vessels_df["vessel_id"]:
-    for c in cargos_df["cargo_id"]:
-        if pulp.value(assignments[v, c]) == 1:
-            speed = vessels_df[vessels_df["vessel_id"] == v]["speed"].values[0]
-            cost_per_day = vessels_df[vessels_df["vessel_id"] == v]["cost_per_day"].values[0]
-            estimated_days = AVG_DISTANCE / speed
-            estimated_profit = round(
-            get_spot_price(cargos_df[cargos_df["cargo_id"] == c]["destination"].values[0]) *
-             cargos_df[cargos_df["cargo_id"] == c]["volume"].values[0]
-             -
-             cost_per_day * estimated_days,
-             2
+for v in vessels:
+    for c in cargos:
+        key = (v["vessel_id"], c["cargo_id"])
+        if pulp.value(assignments[key]) == 1:
+            speed = float(v["speed"])
+            cost_per_day = float(v["cost_per_day"])
+            days = AVG_DISTANCE / speed
+            profit = round(
+                get_spot_price(c["destination"]) * float(c["volume"]) -
+                cost_per_day * days, 2
             )
-
             output.append({
-                "vessel": v,
-                "cargo": c,
-                "pickup_port": cargos_df[cargos_df["cargo_id"] == c]["origin"].values[0],
-                "delivery_port": cargos_df[cargos_df["cargo_id"] == c]["destination"].values[0],
-                "estimated_days": round(estimated_days, 2),
-                "estimated_profit": estimated_profit,
+                "vessel": v["vessel_id"],
+                "cargo": c["cargo_id"],
+                "pickup_port": c["origin"],
+                "delivery_port": c["destination"],
+                "estimated_days": round(days, 2),
+                "estimated_profit": profit,
                 "status": "Scheduled",
                 "optimized_at": datetime.utcnow().isoformat()
             })
 
-# Save result to JSON
+# Save to JSON
 with open("results/schedule_output.json", "w") as f:
     json.dump(output, f, indent=2)
 
 print(f"✅ Optimization complete. Assigned {len(output)} vessels.")
-print(f"📄 Output written to results/schedule_output.json")
+print("📄 Output written to results/schedule_output.json")
