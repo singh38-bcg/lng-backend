@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
+from fastapi.staticfiles import StaticFiles
 
 # Load environment variables
 load_dotenv()
@@ -112,3 +113,8 @@ async def chat_with_schedule(request: Request):
     except Exception as e:
         print(f"❌ GPT prompt or API error: {e}")
         return {"error": "Failed to generate GPT response due to internal error."}, 500
+    # Ensure uploads folder exists
+os.makedirs("uploads", exist_ok=True)
+
+# Mount uploads folder so frontend can fetch enriched CSVs
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
