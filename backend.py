@@ -23,6 +23,7 @@ def read_root():
 async def chat_with_schedule(request: Request):
     data = await request.json()
     user_input = data.get("message")
+    print("🛰️ Received user message:", user_input)
 
     # Load the latest optimized schedule
     with open("results/schedule_output.json", "r") as f:
