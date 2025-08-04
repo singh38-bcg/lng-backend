@@ -107,9 +107,14 @@ if __name__ == "__main__":
     results, enriched = run_optimization()
     with open("results/schedule_output.json", "w") as f:
         json.dump(results, f, indent=2)
+    # Safely write enriched vessel data
     with open("uploads/vessels.csv", "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=enriched[0].keys())
-        writer.writeheader()
-        writer.writerows(enriched)
+        fieldnames = [
+        "vessel_id", "speed", "cost_per_day", "current_location", "status",
+        "delay_hours", "last_update", "assignedCargo", "eta"
+    ]
+    writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(enriched)
     shutil.copyfile("uploads/vessels.csv", "data/vessels.csv")
     print("✅ Optimization completed and written to files.")

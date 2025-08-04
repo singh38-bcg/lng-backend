@@ -1,120 +1,109 @@
 import os
 import json
-import shutil
-import subprocess
+import csv
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from openai import OpenAI
 from fastapi.staticfiles import StaticFiles
+from openai import OpenAI
+
+from optimize import run_optimization  # ✅ NEW: direct function import
+
+# Ensure uploads folder exists and mounted for frontend access
+os.makedirs("uploads", exist_ok=True)
 
 # Load environment variables
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Initialize FastAPI app
 app = FastAPI()
 
-# Enable CORS for all origins (can restrict to specific URL)
+# Enable CORS for all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # For production, restrict to frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Serve static files (for enriched vessels.csv)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # Health check
 @app.get("/")
-def read_root():
-    return {"msg": "Hello from FastAPI"}
+def root():
+    return {"status": "OK", "message": "LNG optimizer backend is live"}
 
-# Upload endpoint
+# Upload CSV files
 @app.post("/upload/{filename}")
 async def upload_csv(filename: str, file: UploadFile = File(...)):
-    file_location = f"data/{filename}"
-    with open(file_location, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-    return {"message": f"{filename} uploaded successfully"}
+    save_path = os.path.join("data", filename)
+    with open(save_path, "wb") as f:
+        f.write(await file.read())
+    return {"status": "success", "file": filename}
 
-# Optimization + explanation endpoint
+# Run optimization and return results + enriched vessel CSV
 @app.post("/optimize-and-explain")
-async def optimize_and_explain():
-    # Run optimizer
-    result = subprocess.run(["python", "optimize.py"], capture_output=True, text=True)
-    if result.returncode != 0:
+def optimize_and_explain():
+    try:
+        results, enriched_vessels = run_optimization()
+
+        # Save enriched schedule
+        with open("uploads/vessels.csv", "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=enriched_vessels[0].keys())
+            writer.writeheader()
+            writer.writerows(enriched_vessels)
+
+        # Also save schedule.json (optional — not fetched by frontend)
+        with open("results/schedule_output.json", "w") as f:
+            json.dump(results, f, indent=2)
+
         return {
-            "error": "optimize.py failed",
-            "stdout": result.stdout,
-            "stderr": result.stderr
+            "status": "success",
+            "schedule": results,
         }
 
-    # Run explainer
-    result = subprocess.run(["python", "explain_schedule.py"], capture_output=True, text=True)
-    explanation = result.stdout.split("🧠 GPT Explanation:")[-1].strip()
-
-    # Load output schedule
-    if not os.path.exists("results/schedule_output.json"):
+    except Exception as e:
         return {
-            "Error": "Schedule not found. Please run optimization before asking questions."
-        }, 400
-    with open("results/schedule_output.json", "r") as f:
-        schedule = json.load(f)
+            "status": "error",
+            "message": f"Optimization failed: {e}"
+        }
 
-    return {
-        "schedule": schedule,
-        "gpt_explanation": explanation
-    }
-
-# AI assistant chat endpoint
+# Chat assistant
 @app.post("/chat")
 async def chat_with_schedule(request: Request):
     data = await request.json()
     user_input = data.get("message")
-    print("🛰️ Received user message:", user_input)
+    print("🛰️ User asked:", user_input)
 
     try:
         with open("results/schedule_output.json", "r") as f:
             schedule = json.load(f)
 
         system_prompt = (
-             "You are a logistics assistant helping with LNG vessel scheduling. "
-    "Base your answers strictly on the provided schedule data. "
-    "Use the fields 'estimated_revenue' and 'estimated_profit' when calculating margins. "
-    "Do not assume or recalculate revenue based on profit. "
-    "All values in the schedule are authoritative and accurate. "
-    "Respond with clear, numeric, and factual answers only. "
-    "If data is missing, say so — do not invent information."
+            "You are a logistics assistant helping with LNG vessel scheduling. "
+            "Use only the provided schedule data. "
+            "Refer to 'estimated_revenue' and 'estimated_profit' directly. "
+            "If data is missing, state that explicitly."
         )
 
-        route_summary = ""
-        for item in schedule:
-            route_summary += (
-                f"- {item['vessel']} is assigned to deliver {item['cargo']} "
-                f"from {item['pickup_port']} to {item['delivery_port']} "
-                f"(ETA: {item['estimated_days']} days, Profit: ${item['estimated_profit']})\n"
-            )
-
-        user_prompt = (
-            f"Here is the current LNG vessel schedule:\n\n{route_summary}\n\n"
-            f"User question: {user_input}"
-        )
+        summary = "\n".join([
+            f"- {r['vessel']} → {r['delivery_port']} | ETA: {r['estimated_days']} days | Profit: ${r['estimated_profit']}"
+            for r in schedule
+        ])
 
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": f"{summary}\n\nUser question: {user_input}"}
             ],
-            temperature=0.4,
+            temperature=0.4
         )
+
         return {"answer": response.choices[0].message.content}
 
     except Exception as e:
-        print(f"❌ GPT prompt or API error: {e}")
-        return {"error": "Failed to generate GPT response due to internal error."}, 500
-    # Ensure uploads folder exists
-os.makedirs("uploads", exist_ok=True)
-
-# Mount uploads folder so frontend can fetch enriched CSVs
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+        print("❌ GPT error:", e)
+        return {"error": "Failed to respond from assistant"}
