@@ -1,0 +1,32 @@
+[
+  {
+    "vessel": "LNG-001",
+    "cargo": "CARGO-2024-001",
+    "pickup_port": "Qatar Terminal",
+    "delivery_port": "Yokohama",
+    "estimated_days": 166.67,
+    "estimated_profit": -6743333.33,
+    "status": "Scheduled",
+    "optimized_at": "2025-08-04T04:12:04.819496"
+  },
+  {
+    "vessel": "LNG-004",
+    "cargo": "CARGO-2024-002",
+    "pickup_port": "Ras Laffan",
+    "delivery_port": "Singapore",
+    "estimated_days": 150.0,
+    "estimated_profit": -6520000.0,
+    "status": "Scheduled",
+    "optimized_at": "2025-08-04T04:12:04.821539"
+  },
+  {
+    "vessel": "LNG-005",
+    "cargo": "CARGO-2024-003",
+    "pickup_port": "Rotterdam",
+    "delivery_port": "Busan",
+    "estimated_days": 166.67,
+    "estimated_profit": -6640833.33,
+    "status": "Scheduled",
+    "optimized_at": "2025-08-04T04:12:04.821899"
+  }
+]
