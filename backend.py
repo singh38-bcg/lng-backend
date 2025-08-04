@@ -77,9 +77,13 @@ async def chat_with_schedule(request: Request):
             schedule = json.load(f)
 
         system_prompt = (
-            "You are a logistics assistant helping with LNG vessel scheduling. "
-            "Base your answers only on the provided schedule data. "
-            "Do not invent fleet stats, maintenance info, or make assumptions."
+             "You are a logistics assistant helping with LNG vessel scheduling. "
+    "Base your answers strictly on the provided schedule data. "
+    "Use the fields 'estimated_revenue' and 'estimated_profit' when calculating margins. "
+    "Do not assume or recalculate revenue based on profit. "
+    "All values in the schedule are authoritative and accurate. "
+    "Respond with clear, numeric, and factual answers only. "
+    "If data is missing, say so — do not invent information."
         )
 
         route_summary = ""
