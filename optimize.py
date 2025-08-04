@@ -68,11 +68,10 @@ def run_optimization():
     for v in vessels:
         for c in cargos:
             if pulp.value(assignments[v["vessel_id"], c["cargo_id"]]) == 1:
-                eta_days = 3000 / float(v["speed"])
+                eta_days = AVG_DISTANCE / float(v["speed"])
                 eta_dt = datetime.utcnow() + timedelta(days=eta_days)
                 eta_str = eta_dt.strftime("%Y-%m-%d %H:%M")
 
-                # Parse window_end from cargo
                 window_end_str = c.get("window_end", "")
                 try:
                     window_end_dt = datetime.fromisoformat(window_end_str.replace("Z", ""))
@@ -105,16 +104,20 @@ def run_optimization():
 
 if __name__ == "__main__":
     results, enriched = run_optimization()
+
+    # Save results
     with open("results/schedule_output.json", "w") as f:
         json.dump(results, f, indent=2)
-    # Safely write enriched vessel data
+
+    # Safely write enriched vessels CSV
     with open("uploads/vessels.csv", "w", newline="") as f:
         fieldnames = [
-        "vessel_id", "speed", "cost_per_day", "current_location", "status",
-        "delay_hours", "last_update", "assignedCargo", "eta"
-    ]
-    writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-    writer.writeheader()
-    writer.writerows(enriched)
+            "vessel_id", "speed", "cost_per_day", "current_location", "status",
+            "delay_hours", "last_update", "assignedCargo", "eta"
+        ]
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(enriched)
+
     shutil.copyfile("uploads/vessels.csv", "data/vessels.csv")
     print("✅ Optimization completed and written to files.")
