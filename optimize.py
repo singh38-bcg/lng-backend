@@ -2,6 +2,28 @@ import pandas as pd
 import pulp
 import json
 from datetime import datetime
+import requests
+
+# Mapping port to LNG price marker (customizable)
+PORT_TO_MARKET = {
+    "Yokohama": "JKM",        # Japan Korea Marker
+    "Singapore": "SING",      # Simulated name
+    "Busan": "JKM",
+    "Mumbai": "INDIA",        # Simulated
+    "Rotterdam": "TTF"
+}
+
+def get_spot_price(destination_port):
+    market = PORT_TO_MARKET.get(destination_port, "JKM")  # fallback
+    # Simulated URL; use mock API until KAPSARC/EIA is directly available
+    # In future: Replace with actual call to KAPSARC API
+    fake_prices = {
+        "JKM": 13.25,
+        "SING": 12.80,
+        "INDIA": 13.00,
+        "TTF": 11.75
+    }
+    return fake_prices.get(market, 12.00)
 
 # Load data
 vessels_df = pd.read_csv("data/vessels.csv")
@@ -13,7 +35,7 @@ AVG_DISTANCE = 3000  # nautical miles, placeholder
 HOURS_PER_DAY = 24
 
 # Create a Linear Programming problem
-model = pulp.LpProblem("LNG_Lifting_Optimization", pulp.LpMinimize)
+model = pulp.LpProblem("LNG_Lifting_Optimization", pulp.LpMaximize)
 
 # Decision variables: x[vessel][cargo] = 1 if vessel is assigned to cargo
 assignments = pulp.LpVariable.dicts(
@@ -22,14 +44,18 @@ assignments = pulp.LpVariable.dicts(
     cat="Binary"
 )
 
-# Objective: Minimize cost = (distance / speed) * cost_per_day
-model += pulp.lpSum(
-    assignments[v, c] *
-    (vessels_df[vessels_df["vessel_id"] == v]["cost_per_day"].values[0]) *
-    (AVG_DISTANCE / vessels_df[vessels_df["vessel_id"] == v]["speed"].values[0])
+# Objective: Maximize Profit
+model += pulp.lpSum([
+    assignments[v, c] * (
+        get_spot_price(cargos_df[cargos_df["cargo_id"] == c]["destination"].values[0]) *
+        cargos_df[cargos_df["cargo_id"] == c]["volume"].values[0]
+        -
+        vessels_df[vessels_df["vessel_id"] == v]["cost_per_day"].values[0] *
+        (AVG_DISTANCE / vessels_df[vessels_df["vessel_id"] == v]["speed"].values[0])
+    )
     for v in vessels_df["vessel_id"]
     for c in cargos_df["cargo_id"]
-)
+])
 
 # Constraint: Each cargo must be assigned to exactly one vessel
 for c in cargos_df["cargo_id"]:
@@ -50,7 +76,13 @@ for v in vessels_df["vessel_id"]:
             speed = vessels_df[vessels_df["vessel_id"] == v]["speed"].values[0]
             cost_per_day = vessels_df[vessels_df["vessel_id"] == v]["cost_per_day"].values[0]
             estimated_days = AVG_DISTANCE / speed
-            estimated_cost = round(cost_per_day * estimated_days, 2)
+            estimated_profit = round(
+            get_spot_price(cargos_df[cargos_df["cargo_id"] == c]["destination"].values[0]) *
+             cargos_df[cargos_df["cargo_id"] == c]["volume"].values[0]
+             -
+             cost_per_day * estimated_days,
+             2
+            )
 
             output.append({
                 "vessel": v,
@@ -58,7 +90,7 @@ for v in vessels_df["vessel_id"]:
                 "pickup_port": cargos_df[cargos_df["cargo_id"] == c]["origin"].values[0],
                 "delivery_port": cargos_df[cargos_df["cargo_id"] == c]["destination"].values[0],
                 "estimated_days": round(estimated_days, 2),
-                "estimated_cost": estimated_cost,
+                "estimated_profit": estimated_profit,
                 "status": "Scheduled",
                 "optimized_at": datetime.utcnow().isoformat()
             })
