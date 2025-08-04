@@ -1,4 +1,4 @@
-.envresults/schedule_output.json
+
 
 # Python cache and compiled files
 __pycache__/
@@ -9,9 +9,6 @@ __pycache__/
 # Virtual environments
 venv/
 .env
-
-# Output artifacts
-results/schedule_output.json
 
 # Jupyter & VSCode
 .ipynb_checkpoints/
