@@ -53,6 +53,10 @@ async def optimize_and_explain():
     explanation = result.stdout.split("🧠 GPT Explanation:")[-1].strip()
 
     # Load output schedule
+    if not os.path.exists("results/schedule_output.json"):
+        return {
+            "Error": "Schedule not found. Please run optimization before asking questions."
+        }, 400
     with open("results/schedule_output.json", "r") as f:
         schedule = json.load(f)
 
