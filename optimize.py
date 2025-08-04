@@ -40,7 +40,7 @@ def load_csv(path, required_keys):
 
 def run_optimization():
     vessels = load_csv("data/vessels.csv", ["vessel_id", "speed", "cost_per_day", "current_location","status", "delay_hours", "last_update"])
-    cargos = load_csv("data/cargos.csv", ["cargo_id", "origin", "destination", "volume", "window_end"])
+    cargos = load_csv("data/cargos.csv", ["cargo_id", "origin", "destination", "window_start", "window_end", "volume"])
     contracts = load_csv("data/contracts.csv", ["cargo_id", "delivery_price_per_ton", "penalty_per_day"])
 
     model = pulp.LpProblem("LNG_Lifting_Optimization", pulp.LpMaximize)
