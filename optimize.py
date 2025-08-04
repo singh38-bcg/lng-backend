@@ -3,6 +3,7 @@ import pulp
 import json
 from datetime import datetime, timedelta
 import yfinance as yf
+import shutil
 
 # Mapping
 PORT_TO_MARKET = {
@@ -120,6 +121,9 @@ with open("uploads/vessels.csv", "w", newline="") as f:
     writer = csv.DictWriter(f, fieldnames=list(updated_vessels.values())[0].keys())
     writer.writeheader()
     writer.writerows(updated_vessels.values())
+
+# Copy enriched vessels.csv to frontend-accessible path
+shutil.copyfile("data/vessels.csv", "uploads/vessels.csv")
 
 print(f"✅ Optimization complete. {len(results)} assignments saved.")
 print("📄 schedule_output.json and updated vessels.csv written.")
