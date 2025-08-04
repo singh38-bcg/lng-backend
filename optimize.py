@@ -4,6 +4,8 @@ import json
 from datetime import datetime
 
 # Spot price mapping
+import yfinance as yf  # Make sure this is at the top
+
 PORT_TO_MARKET = {
     "Yokohama": "JKM",
     "Singapore": "SING",
@@ -12,15 +14,32 @@ PORT_TO_MARKET = {
     "Rotterdam": "TTF"
 }
 
+MARKET_TO_TICKER = {
+    "JKM": "JKM=F",
+    "TTF": "TTF=F",
+    "INDIA": "NG=F",
+    "SING": "NG=F"  # Fallback to Henry Hub proxy
+}
+
 def get_spot_price(destination_port):
     market = PORT_TO_MARKET.get(destination_port, "JKM")
-    fake_prices = {
+    ticker_symbol = MARKET_TO_TICKER.get(market)
+
+    try:
+        if ticker_symbol:
+            ticker = yf.Ticker(ticker_symbol)
+            live_price = ticker.fast_info["lastPrice"]
+            return round(float(live_price), 2)
+    except Exception as e:
+        print(f"⚠️ Spot price fetch error for {market}: {e}")
+
+    # Fallback to static
+    return {
         "JKM": 13.25,
         "SING": 12.80,
         "INDIA": 13.00,
         "TTF": 11.75
-    }
-    return fake_prices.get(market, 12.00)
+    }.get(market, 12.00)
 
 def load_csv(path, required_keys):
     with open(path, "r") as f:
