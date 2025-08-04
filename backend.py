@@ -44,7 +44,7 @@ async def chat_with_schedule(request: Request):
         route_summary += (
             f"- {item['vessel']} is assigned to deliver {item['cargo']} "
             f"from {item['pickup_port']} to {item['delivery_port']} "
-            f"(ETA: {item['estimated_days']} days, Cost: ${item['estimated_cost']})\n"
+            f"(ETA: {item['estimated_days']} days, Profit: ${item['estimated_profit']})\n"
         )
 
     # Construct GPT prompt
