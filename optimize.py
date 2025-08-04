@@ -44,8 +44,11 @@ def get_spot_price(destination_port):
 def load_csv(path, required_keys):
     with open(path, "r") as f:
         rows = list(csv.DictReader(f))
-        clean = [row for row in rows if all(k in row and row[k] for k in required_keys)]
-        print(f"📦 Loaded {len(clean)} valid rows from {path}")
+        clean = [
+            row for row in rows
+            if row and all(k in row and row[k].strip() != "" for k in required_keys)
+        ]
+        print(f"✅ Loaded {len(clean)} valid rows from {path}")
         return clean
 
 # Load and validate data
