@@ -2,7 +2,7 @@ services:
   - type: web
     name: lng-backend
     env: python
-    buildCommand: ""
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: uvicorn backend:app --host 0.0.0.0 --port 10000
     envVars:
       - key: OPENAI_API_KEY
