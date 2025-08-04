@@ -4,3 +4,4 @@ python-dotenv==1.1.1
 uvicorn==0.35.0
 python-multipart
 pandas
+pulp
