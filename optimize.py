@@ -3,7 +3,7 @@ import pulp
 import json
 from datetime import datetime
 
-# Mapping port to LNG price marker (customizable)
+# Spot price mapping
 PORT_TO_MARKET = {
     "Yokohama": "JKM",
     "Singapore": "SING",
@@ -22,31 +22,32 @@ def get_spot_price(destination_port):
     }
     return fake_prices.get(market, 12.00)
 
-def load_csv(path):
+def load_csv(path, required_keys):
     with open(path, "r") as f:
-        return list(csv.DictReader(f))
+        rows = list(csv.DictReader(f))
+        clean = [row for row in rows if all(k in row and row[k] for k in required_keys)]
+        print(f"📦 Loaded {len(clean)} valid rows from {path}")
+        return clean
 
-vessels = load_csv("data/vessels.csv")
-cargos = load_csv("data/cargos.csv")
-contracts = load_csv("data/contracts.csv")
+# Load and validate data
+vessels = load_csv("data/vessels.csv", ["vessel_id", "speed", "cost_per_day"])
+cargos = load_csv("data/cargos.csv", ["cargo_id", "origin", "destination", "volume"])
+contracts = load_csv("data/contracts.csv", ["cargo_id", "delivery_price_per_ton", "penalty_per_day"])
 
-# Constants
-AVG_DISTANCE = 3000  # nautical miles
+AVG_DISTANCE = 3000  # nm placeholder
 
-# Create LP problem
-model = pulp.LpProblem("LNG_Optimization", pulp.LpMaximize)
+model = pulp.LpProblem("LNG_Lifting_Optimization", pulp.LpMaximize)
 
-# Decision variables
 assignments = pulp.LpVariable.dicts(
     "assign",
     ((v["vessel_id"], c["cargo_id"]) for v in vessels for c in cargos),
     cat="Binary"
 )
 
-# Objective: Maximize profit (revenue – cost)
+# Objective: maximize profit
 model += pulp.lpSum([
     assignments[v["vessel_id"], c["cargo_id"]] * (
-        float(get_spot_price(c["destination"])) * float(c["volume"])
+        get_spot_price(c["destination"]) * float(c["volume"])
         - float(v["cost_per_day"]) * (AVG_DISTANCE / float(v["speed"]))
     )
     for v in vessels for c in cargos
@@ -59,37 +60,29 @@ for c in cargos:
 for v in vessels:
     model += pulp.lpSum(assignments[v["vessel_id"], c["cargo_id"]] for c in cargos) <= 1
 
-# Solve
 model.solve()
 
-# Output
 output = []
 for v in vessels:
     for c in cargos:
         if pulp.value(assignments[v["vessel_id"], c["cargo_id"]]) == 1:
-            speed = float(v["speed"])
-            cost_per_day = float(v["cost_per_day"])
-            estimated_days = AVG_DISTANCE / speed
-            cost = estimated_days * cost_per_day
-
-            spot_price = get_spot_price(c["destination"])
-            volume = float(c["volume"])
-            revenue = spot_price * volume
-            profit = revenue - cost
-
+            eta_days = AVG_DISTANCE / float(v["speed"])
+            profit = round(
+                get_spot_price(c["destination"]) * float(c["volume"])
+                - float(v["cost_per_day"]) * eta_days, 2
+            )
             output.append({
                 "vessel": v["vessel_id"],
                 "cargo": c["cargo_id"],
                 "pickup_port": c["origin"],
                 "delivery_port": c["destination"],
-                "estimated_days": round(estimated_days, 2),
-                "estimated_revenue": round(revenue, 2),
-                "estimated_profit": round(profit, 2),
+                "estimated_days": round(eta_days, 2),
+                "estimated_profit": profit,
                 "status": "Scheduled",
                 "optimized_at": datetime.utcnow().isoformat()
             })
 
-# Save
+# Save result
 with open("results/schedule_output.json", "w") as f:
     json.dump(output, f, indent=2)
 
