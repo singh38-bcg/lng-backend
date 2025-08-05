@@ -119,7 +119,7 @@ def generate_banners(results):
         port = r.get("delivery_port")
         if port and port not in seen_ports:
             spot_price = get_spot_price(port)
-            if spot_price >= 14.5:
+            if spot_price >= 13.0:
                 banners.append({
                     "type": "opportunity",
                     "message": f"Spot price surge at {port} — consider selling 20kt for ${spot_price:.2f}/mmBtu."
