@@ -27,11 +27,19 @@ def get_spot_price(destination_port):
     try:
         if ticker_symbol:
             ticker = yf.Ticker(ticker_symbol)
-            price = ticker.fast_info["lastPrice"]
-            return round(float(price), 2)
+            price = ticker.fast_info.get("lastPrice") or ticker.info.get("regularMarketPrice")
+            if price:
+                return round(float(price), 2)
     except Exception as e:
         print(f"⚠️ Spot price fetch error for {market}: {e}")
-    return {"JKM": 13.25, "SING": 12.80, "INDIA": 13.00, "TTF": 11.75}.get(market, 12.00)
+
+    # Fallback static prices
+    return {
+        "JKM": 13.25,
+        "SING": 12.80,
+        "INDIA": 13.00,
+        "TTF": 11.75
+    }.get(market, 12.00)
 
 def load_csv(path, required_keys):
     with open(path, "r") as f:
