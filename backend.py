@@ -47,7 +47,7 @@ async def upload_csv(filename: str, file: UploadFile = File(...)):
 @app.post("/optimize-and-explain")
 def optimize_and_explain():
     try:
-        results, enriched_vessels = run_optimization()
+        results, enriched_vessels, banners = run_optimization()
 
         # Save enriched schedule
         with open("uploads/vessels.csv", "w", newline="") as f:
@@ -62,6 +62,7 @@ def optimize_and_explain():
         return {
             "status": "success",
             "schedule": results,
+            "banners": banners
         }
 
     except Exception as e:

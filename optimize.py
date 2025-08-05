@@ -100,7 +100,34 @@ def run_optimization():
                     "optimized_at": datetime.utcnow().isoformat()
                 })
 
-    return results, list(enriched.values())
+    return results, list(enriched.values()), generate_banners(results)
+
+def generate_banners(results):
+    banners = []
+
+    # Spot price alerts for any delivery port
+    seen_ports = set()
+    for r in results:
+        port = r.get("delivery_port")
+        if port and port not in seen_ports:
+            spot_price = get_spot_price(port)
+            if spot_price >= 14.5:
+                banners.append({
+                    "type": "opportunity",
+                    "message": f"Spot price surge at {port} — consider selling 20kt for ${spot_price:.2f}/mmBtu."
+                })
+            seen_ports.add(port)
+
+    # Simulated weather alert for Busan
+    for r in results:
+        if r.get("delivery_port") == "Busan" and r.get("estimated_days", 0) > 140:
+            banners.append({
+                "type": "warning",
+                "message": "Weather disruption forecasted along route to Busan. Click to explore reroutes."
+            })
+            break
+
+    return banners
 
 if __name__ == "__main__":
     results, enriched = run_optimization()
@@ -118,6 +145,7 @@ if __name__ == "__main__":
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(enriched)
-
+        banners = generate_banners(results)
+        print("📣 Banners:", json.dumps(banners, indent=2))
     shutil.copyfile("uploads/vessels.csv", "data/vessels.csv")
     print("✅ Optimization completed and written to files.")
