@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
 from optimize import run_optimization  # ✅ NEW: direct function import
+from explain_schedule import explain_schedule
 
 # Ensure uploads folder exists and mounted for frontend access
 os.makedirs("uploads", exist_ok=True)
@@ -59,10 +60,16 @@ def optimize_and_explain():
         with open("results/schedule_output.json", "w") as f:
             json.dump(results, f, indent=2)
 
+        explanation = explain_schedule(results)
+        with open("results/explanation.txt", "w") as f:
+            f.write(explanation)
+
         return {
             "status": "success",
             "schedule": results,
-            "banners": banners
+            "banners": banners,
+            "gpt_explanation": explanation,
+            "explanation": explanation
         }
 
     except Exception as e:
@@ -90,7 +97,9 @@ async def chat_with_schedule(request: Request):
         )
 
         summary = "\n".join([
-            f"- {r['vessel']} → {r['delivery_port']} | ETA: {r['estimated_days']} days | Profit: ${r['estimated_profit']}"
+            f"- {r['vessel']} (from {r.get('vessel_location', 'unknown')}) → {r['pickup_port']} → {r['delivery_port']} | "
+            f"Ballast: {r.get('ballast_days', '?')} days | Total: {r['estimated_days']} days | "
+            f"Revenue: ${r['estimated_revenue']} | Cost: ${r.get('estimated_cost', '?')} | Profit: ${r['estimated_profit']}"
             for r in schedule
         ])
 
